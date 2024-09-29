@@ -3,7 +3,7 @@ FROM golang:1.21.4 AS build
 RUN mkdir /build
 WORKDIR /build
 
-# Incrementally COPY and build parts. This ensures cacheable steps.
+WORKDIR /go/src/github.com/bipinshashi/log-collection
 COPY go.mod .
 COPY go.sum .
 
@@ -15,12 +15,15 @@ RUN go build -mod=vendor -trimpath -ldflags="-linkmode=internal" ./internal/...
 
 COPY main.go ./main.go
 
-RUN go build -mod=vendor -trimpath -ldflags="-linkmode=internal" -o /build/log-collection main.go
+RUN set -x && \
+    CGO_ENABLED=0 go build -mod=vendor \
+        -o /build/log-collection
 
 # Production Image
 FROM alpine:3.18.3
 RUN apk add --update --no-cache ca-certificates
 
-COPY --from=build /build/log-collection /
+WORKDIR /root/
+COPY --from=build /build/log-collection .
 
-ENTRYPOINT ["/log-collection"]
+ENTRYPOINT [ "./log-collection" ]
