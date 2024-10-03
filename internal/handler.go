@@ -3,9 +3,11 @@ package internal
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strconv"
@@ -56,34 +58,10 @@ var LogEntryTypeTimePart = map[LogEntryType]LogEntryTypeConfig{
 }
 
 func (a *AppHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
-	nStr := r.URL.Query().Get("n")
-	n := 100
-	if nStr != "" {
-		var err error
-		n, err = strconv.Atoi(nStr)
-		if err != nil {
-			returnBadRequest("Invalid number of lines", w)
-			return
-		}
-		if n <= 0 || n > 1000 {
-			returnBadRequest("Number of lines must be between 1 and 1000", w)
-			return
-		}
-	}
-
-	// sanitize filter query
-	filter := r.URL.Query().Get("filter")
-	filter = strings.TrimSpace(filter)
-	filter = strings.ToLower(filter)
-
-	filename := r.URL.Query().Get("file")
-	if filename == "" {
-		filename = defaultLogFileName
-	}
-	params := RequestParams{
-		fileName: filename,
-		filter:   filter,
-		lines:    n,
+	params, err := validateQueryParams(r.URL)
+	if err != nil {
+		returnBadRequest(err.Error(), w)
+		return
 	}
 
 	filePath, err := utils.ValidateFilePath(logDir, params.fileName)
@@ -159,6 +137,38 @@ func (a *AppHandler) appendPeerLogs(logs []LogEntry, params RequestParams) []Log
 	return logs
 }
 
+func validateQueryParams(url *url.URL) (RequestParams, error) {
+	nStr := url.Query().Get("n")
+	n := 100
+	if nStr != "" {
+		var err error
+		n, err = strconv.Atoi(nStr)
+		if err != nil {
+			return RequestParams{}, errors.New("invalid number of lines")
+		}
+		if n <= 0 || n > 1000 {
+			return RequestParams{}, errors.New("number of lines should be between 1 and 1000")
+		}
+	}
+
+	// sanitize filter query
+	filter := url.Query().Get("filter")
+	filter = strings.TrimSpace(filter)
+	filter = strings.ToLower(filter)
+
+	filename := url.Query().Get("file")
+	if filename == "" {
+		filename = defaultLogFileName
+	}
+	params := RequestParams{
+		fileName: filename,
+		filter:   filter,
+		lines:    n,
+	}
+
+	return params, nil
+}
+
 func getUrlForPeer(peer string, params RequestParams) string {
 	lines := params.lines
 	linesStr := strconv.Itoa(lines)
@@ -220,9 +230,12 @@ func readLastNLines(file io.Reader, params RequestParams, server string) ([]LogE
 
 func getLogEntryType(filename string) LogEntryType {
 	var logType LogEntryType
-	if filename == "wifi.log" {
+	switch {
+	case strings.Contains(filename, "wifi"):
 		logType = Wifi
-	} else {
+	case strings.Contains(filename, "system"):
+		logType = System
+	default:
 		logType = System
 	}
 	return logType
@@ -232,12 +245,10 @@ func parseLogEntry(line string, logType LogEntryType, server string) LogEntry {
 	parts := strings.Fields(line)
 	logEntryTypeConfig := LogEntryTypeTimePart[logType]
 	if len(parts) < logEntryTypeConfig.Part {
-		// increment a metric for failed log parsing
 		return LogEntry{}
 	}
 	timestamp, err := time.Parse(logEntryTypeConfig.Layout, strings.Join(parts[0:logEntryTypeConfig.Part], " "))
 	if err != nil {
-		// increment a metric for failed log parsing
 		return LogEntry{}
 	}
 	message := strings.Join(parts, " ")

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"net/url"
 	"reflect"
 	"testing"
 	"time"
@@ -28,7 +29,7 @@ func Test_parseLogEntry(t *testing.T) {
 			want: LogEntry{
 				Timestamp: time.Date(0, time.October, 1, 13, 8, 11, 0, time.UTC),
 				Server:    "api",
-				Message:   "This is a log entry",
+				Message:   "Oct 1 13:08:11 This is a log entry",
 				Type:      System,
 			},
 		},
@@ -56,7 +57,7 @@ func Test_parseLogEntry(t *testing.T) {
 			want: LogEntry{
 				Timestamp: time.Date(0, time.September, 30, 10, 27, 25, 955000000, time.UTC),
 				Server:    "api",
-				Message:   "This is a log entry",
+				Message:   "Mon Sep 30 10:27:25.955 This is a log entry",
 				Type:      Wifi,
 			},
 		},
@@ -228,6 +229,141 @@ func Test_readLastNLines(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("readLastNLines() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateQueryParams(t *testing.T) {
+	type args struct {
+		url *url.URL
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    RequestParams
+		wantErr bool
+	}{
+		{
+			name: "Valid query params",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=5&filter=error",
+				},
+			},
+			want: RequestParams{
+				fileName: "system.log",
+				lines:    5,
+				filter:   "error",
+			},
+			wantErr: false,
+		},
+		{
+			name: "n is not a number",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=notanumber&filter=error",
+				},
+			},
+			want:    RequestParams{},
+			wantErr: true,
+		},
+		{
+			name: "n is not provided, should default to 100",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&filter=error",
+				},
+			},
+			want: RequestParams{
+				fileName: "system.log",
+				lines:    100,
+				filter:   "error",
+			},
+			wantErr: false,
+		},
+		{
+			name: "n is greater than 1000",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=1001&filter=error",
+				},
+			},
+			want:    RequestParams{},
+			wantErr: true,
+		},
+		{
+			name: "n is less than 1",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=0&filter=error",
+				},
+			},
+			want:    RequestParams{},
+			wantErr: true,
+		},
+		{
+			name: "n is negative",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=-1&filter=error",
+				},
+			},
+			want:    RequestParams{},
+			wantErr: true,
+		},
+		{
+			name: "filter is provided and has leading/trailing spaces",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=5&filter=  Error   ",
+				},
+			},
+			want: RequestParams{
+				fileName: "system.log",
+				lines:    5,
+				filter:   "error",
+			},
+			wantErr: false,
+		},
+		{
+			name: "filter is not provided",
+			args: args{
+				url: &url.URL{
+					RawQuery: "file=system.log&n=5",
+				},
+			},
+			want: RequestParams{
+				fileName: "system.log",
+				lines:    5,
+				filter:   "",
+			},
+			wantErr: false,
+		},
+		{
+			name: "file is not provided, should default to system.log",
+			args: args{
+				url: &url.URL{
+					RawQuery: "n=5&filter=error",
+				},
+			},
+			want: RequestParams{
+				fileName: "system.log",
+				lines:    5,
+				filter:   "error",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := validateQueryParams(tt.args.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateQueryParams() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("validateQueryParams() = %v, want %v", got, tt.want)
 			}
 		})
 	}
