@@ -6,6 +6,31 @@ services:
     expose:
       - "3000"
     volumes:
-      - .:/app
+      - ./data/server-1-data/:/var/log/
     environment:
+      - SERVER_NAME=api
       - PORT=3000
+      - PEERS=api-2:4000,api-3:6000
+  api-2:
+    build: .
+    ports:
+      - "4000:4000"
+    expose:
+      - "4000"
+    volumes:
+      - ./data/server-2-data/:/var/log/
+    environment:
+      - SERVER_NAME=api-2
+      - PORT=4000
+  api-3:
+    build: .
+    ports:
+      - "6000:6000"
+    expose:
+      - "6000"
+    volumes:
+      - ./data/server-3-data/:/var/log/
+    environment:
+      - SERVER_NAME=api-3
+      - PORT=6000
+  
