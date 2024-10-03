@@ -14,7 +14,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/a-h/templ"
+	"github.com/bipinshashi/log-collection/internal/components"
 	"github.com/bipinshashi/log-collection/internal/config"
+	"github.com/bipinshashi/log-collection/internal/types"
 	"github.com/bipinshashi/log-collection/internal/utils"
 )
 
@@ -28,40 +31,48 @@ type RequestParams struct {
 	filter   string
 }
 
-type LogEntryType string
-
-const (
-	System LogEntryType = "system"
-	Wifi   LogEntryType = "wifi"
-)
-
-type LogEntry struct {
-	Timestamp time.Time    `json:"timestamp"`
-	Server    string       `json:"server"`
-	Message   string       `json:"message"`
-	Type      LogEntryType `json:"type"`
-}
-
 const (
 	logDir             = "/var/log/"
 	defaultLogFileName = "system.log"
+	defaultLines       = 10
 )
 
-type LogEntryTypeConfig struct {
-	Layout string
-	Part   int
+var LogEntryTypeTimePart = map[types.LogEntryType]types.LogEntryTypeConfig{
+	types.System: {Layout: "Jan 2 15:04:05", Part: 3},
+	types.Wifi:   {Layout: "Mon Jan 2 15:04:05.000", Part: 4},
 }
 
-var LogEntryTypeTimePart = map[LogEntryType]LogEntryTypeConfig{
-	System: {Layout: "Jan 2 15:04:05", Part: 3},
-	Wifi:   {Layout: "Mon Jan 2 15:04:05.000", Part: 4},
+var globalLogs types.GlobalLogState
+
+func (a *AppHandler) ShowDemo(w http.ResponseWriter, r *http.Request) {
+	// Update state.
+	r.ParseForm()
+	logs, shouldReturn := a.getLogsHelper(r, w)
+	if shouldReturn {
+		return
+	}
+	globalLogs.Entries = logs
+	component := components.Page(globalLogs)
+	templ.Handler(component).ServeHTTP(w, r)
 }
 
 func (a *AppHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
-	params, err := validateQueryParams(r.URL)
+	// update global logs
+	logs, shouldReturn := a.getLogsHelper(r, w)
+	if shouldReturn {
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(logs)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *AppHandler) getLogsHelper(r *http.Request, w http.ResponseWriter) ([]types.LogEntry, bool) {
+	params, err := validateQueryParams(r.URL.Query())
 	if err != nil {
 		returnBadRequest(err.Error(), w)
-		return
+		return nil, true
 	}
 
 	filePath, err := utils.ValidateFilePath(logDir, params.fileName)
@@ -74,14 +85,14 @@ func (a *AppHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			w.WriteHeader(http.StatusInternalServerError)
 		}
-		return
+		return nil, true
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, true
 	}
 	defer file.Close()
 
@@ -90,7 +101,7 @@ func (a *AppHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		w.WriteHeader(http.StatusInternalServerError)
-		return
+		return nil, true
 	}
 
 	logs = a.appendPeerLogs(logs, params)
@@ -103,12 +114,10 @@ func (a *AppHandler) GetLogs(w http.ResponseWriter, r *http.Request) {
 		logs = logs[0:params.lines]
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(logs)
-	w.WriteHeader(http.StatusOK)
+	return logs, false
 }
 
-func (a *AppHandler) appendPeerLogs(logs []LogEntry, params RequestParams) []LogEntry {
+func (a *AppHandler) appendPeerLogs(logs []types.LogEntry, params RequestParams) []types.LogEntry {
 	config := config.GetConfig()
 	if config.Peers == "" {
 		return logs
@@ -116,7 +125,7 @@ func (a *AppHandler) appendPeerLogs(logs []LogEntry, params RequestParams) []Log
 
 	// use a go channel to concurrently call peers
 	jobs := make(chan string, len(strings.Split(config.Peers, ",")))
-	peerLogResponses := make(chan []LogEntry, len(strings.Split(config.Peers, ",")))
+	peerLogResponses := make(chan []types.LogEntry, len(strings.Split(config.Peers, ",")))
 	for _, peer := range strings.Split(config.Peers, ",") {
 		url := getUrlForPeer(peer, params)
 		jobs <- url
@@ -137,9 +146,9 @@ func (a *AppHandler) appendPeerLogs(logs []LogEntry, params RequestParams) []Log
 	return logs
 }
 
-func validateQueryParams(url *url.URL) (RequestParams, error) {
-	nStr := url.Query().Get("n")
-	n := 100
+func validateQueryParams(values url.Values) (RequestParams, error) {
+	nStr := values.Get("n")
+	n := defaultLines
 	if nStr != "" {
 		var err error
 		n, err = strconv.Atoi(nStr)
@@ -152,11 +161,11 @@ func validateQueryParams(url *url.URL) (RequestParams, error) {
 	}
 
 	// sanitize filter query
-	filter := url.Query().Get("filter")
+	filter := values.Get("filter")
 	filter = strings.TrimSpace(filter)
 	filter = strings.ToLower(filter)
 
-	filename := url.Query().Get("file")
+	filename := values.Get("file")
 	if filename == "" {
 		filename = defaultLogFileName
 	}
@@ -176,7 +185,7 @@ func getUrlForPeer(peer string, params RequestParams) string {
 	return url
 }
 
-func (a *AppHandler) worker(jobs <-chan string, peerLogResponses chan<- []LogEntry) {
+func (a *AppHandler) worker(jobs <-chan string, peerLogResponses chan<- []types.LogEntry) {
 	for url := range jobs {
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
@@ -189,7 +198,7 @@ func (a *AppHandler) worker(jobs <-chan string, peerLogResponses chan<- []LogEnt
 			return
 		}
 		defer resp.Body.Close()
-		var logs []LogEntry
+		var logs []types.LogEntry
 		err = json.NewDecoder(resp.Body).Decode(&logs)
 		if err != nil {
 			log.Println(err)
@@ -205,10 +214,10 @@ func returnBadRequest(errorMsg string, w http.ResponseWriter) {
 }
 
 // readLastNLines reads the last n lines of a log file.
-func readLastNLines(file io.Reader, params RequestParams, server string) ([]LogEntry, error) {
+func readLastNLines(file io.Reader, params RequestParams, server string) ([]types.LogEntry, error) {
 	// Read the file line by line
 	scanner := bufio.NewScanner(file)
-	var logs []LogEntry
+	var logs []types.LogEntry
 	logType := getLogEntryType(params.fileName)
 
 	for i := 0; scanner.Scan(); i++ {
@@ -228,31 +237,31 @@ func readLastNLines(file io.Reader, params RequestParams, server string) ([]LogE
 	return logs[0:params.lines], nil
 }
 
-func getLogEntryType(filename string) LogEntryType {
-	var logType LogEntryType
+func getLogEntryType(filename string) types.LogEntryType {
+	var logType types.LogEntryType
 	switch {
 	case strings.Contains(filename, "wifi"):
-		logType = Wifi
+		logType = types.Wifi
 	case strings.Contains(filename, "system"):
-		logType = System
+		logType = types.System
 	default:
-		logType = System
+		logType = types.System
 	}
 	return logType
 }
 
-func parseLogEntry(line string, logType LogEntryType, server string) LogEntry {
+func parseLogEntry(line string, logType types.LogEntryType, server string) types.LogEntry {
 	parts := strings.Fields(line)
-	logEntryTypeConfig := LogEntryTypeTimePart[logType]
+	logEntryTypeConfig := types.LogEntryTypeTimePart[logType]
 	if len(parts) < logEntryTypeConfig.Part {
-		return LogEntry{}
+		return types.LogEntry{}
 	}
 	timestamp, err := time.Parse(logEntryTypeConfig.Layout, strings.Join(parts[0:logEntryTypeConfig.Part], " "))
 	if err != nil {
-		return LogEntry{}
+		return types.LogEntry{}
 	}
 	message := strings.Join(parts, " ")
-	return LogEntry{
+	return types.LogEntry{
 		Timestamp: timestamp,
 		Server:    server,
 		Message:   message,

@@ -25,6 +25,7 @@ func main() {
 
 	r := mux.NewRouter()
 	r.HandleFunc("/api/v1/logs", appHandler.GetLogs).Methods("GET")
+	r.HandleFunc("/", appHandler.ShowDemo).Methods("GET")
 
 	config := config.GetConfig()
 

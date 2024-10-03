@@ -1,0 +1,36 @@
+package components
+
+import "github.com/bipinshashi/log-collection/internal/types"
+
+templ Form() {
+	<form action="/" method="GET">
+		<div><input type="text" name="file" placeholder="File Name" /></div>
+		<div><input type="text" name="n" placeholder="Lines" /></div>
+		<div><input type="text" name="filter" placeholder="Filter" /></div>
+		<div><button type="submit">Get Logs</button></div>
+	</form>
+}
+
+templ Logs(logState types.GlobalLogState) {
+	<html>
+		// create a table with 2 columns
+		<table>
+			<tr>
+				<th>Server</th>
+				<th>Message</th>
+			</tr>
+			for _, logEntry := range logState.Entries {
+				<tr>
+					<td>{logEntry.Server}</td>
+					<td>{logEntry.Message}</td>
+				</tr>
+			}
+		</table>
+
+	</html>
+}
+
+templ Page(logState types.GlobalLogState) {
+	@Form()
+	@Logs(logState)
+}

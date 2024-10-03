@@ -6,41 +6,43 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/bipinshashi/log-collection/internal/types"
 )
 
 func Test_parseLogEntry(t *testing.T) {
 	type args struct {
 		line    string
-		logType LogEntryType
+		logType types.LogEntryType
 		server  string
 	}
 	tests := []struct {
 		name string
 		args args
-		want LogEntry
+		want types.LogEntry
 	}{
 		{
-			name: "System log entry",
+			name: "types.System log entry",
 			args: args{
 				line:    "Oct 1 13:08:11 This is a log entry",
-				logType: System,
+				logType: types.System,
 				server:  "api",
 			},
-			want: LogEntry{
+			want: types.LogEntry{
 				Timestamp: time.Date(0, time.October, 1, 13, 8, 11, 0, time.UTC),
 				Server:    "api",
 				Message:   "Oct 1 13:08:11 This is a log entry",
-				Type:      System,
+				Type:      types.System,
 			},
 		},
 		{
-			name: "Unparseable System log entry",
+			name: "Unparseable types.System log entry",
 			args: args{
 				line:    "WrongTimestamp This is a log entry",
-				logType: System,
+				logType: types.System,
 				server:  "api",
 			},
-			want: LogEntry{
+			want: types.LogEntry{
 				Timestamp: time.Time{},
 				Server:    "",
 				Message:   "",
@@ -48,27 +50,27 @@ func Test_parseLogEntry(t *testing.T) {
 			},
 		},
 		{
-			name: "Wifi log entry",
+			name: "types.Wifi log entry",
 			args: args{
 				line:    "Mon Sep 30 10:27:25.955 This is a log entry",
-				logType: Wifi,
+				logType: types.Wifi,
 				server:  "api",
 			},
-			want: LogEntry{
+			want: types.LogEntry{
 				Timestamp: time.Date(0, time.September, 30, 10, 27, 25, 955000000, time.UTC),
 				Server:    "api",
 				Message:   "Mon Sep 30 10:27:25.955 This is a log entry",
-				Type:      Wifi,
+				Type:      types.Wifi,
 			},
 		},
 		{
-			name: "Unparseable Wifi log entry",
+			name: "Unparseable types.Wifi log entry",
 			args: args{
 				line:    "Mon blurp Sep 30 10:27:25.955 This is a log entry",
-				logType: Wifi,
+				logType: types.Wifi,
 				server:  "api",
 			},
-			want: LogEntry{
+			want: types.LogEntry{
 				Timestamp: time.Time{},
 				Server:    "",
 				Message:   "",
@@ -99,7 +101,7 @@ func Test_readLastNLines(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    []LogEntry
+		want    []types.LogEntry
 		wantErr bool
 	}{
 		{
@@ -109,12 +111,12 @@ func Test_readLastNLines(t *testing.T) {
 				params:    RequestParams{fileName: "system.log", lines: 1},
 				server:    "api",
 			},
-			want: []LogEntry{
+			want: []types.LogEntry{
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 11, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:11 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 			},
 			wantErr: false,
@@ -126,36 +128,36 @@ func Test_readLastNLines(t *testing.T) {
 				params:    RequestParams{fileName: "system.log", lines: 5},
 				server:    "api",
 			},
-			want: []LogEntry{
+			want: []types.LogEntry{
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 11, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:11 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 10, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:10 This is another log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 9, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:09 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 8, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:08 This is another log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 7, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:07 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 			},
 			wantErr: false,
@@ -167,36 +169,36 @@ func Test_readLastNLines(t *testing.T) {
 				params:    RequestParams{fileName: "system.log", lines: 15},
 				server:    "api",
 			},
-			want: []LogEntry{
+			want: []types.LogEntry{
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 11, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:11 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 10, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:10 This is another log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 9, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:09 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 8, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:08 This is another log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 7, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:07 This is a log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 			},
 			wantErr: false,
@@ -208,12 +210,12 @@ func Test_readLastNLines(t *testing.T) {
 				params:    RequestParams{fileName: "system.log", lines: 1, filter: "another"},
 				server:    "api",
 			},
-			want: []LogEntry{
+			want: []types.LogEntry{
 				{
 					Timestamp: time.Date(0, time.October, 1, 13, 8, 10, 0, time.UTC),
 					Server:    "api",
 					Message:   "Oct 1 13:08:10 This is another log entry",
-					Type:      System,
+					Type:      types.System,
 				},
 			},
 			wantErr: false,
@@ -236,7 +238,7 @@ func Test_readLastNLines(t *testing.T) {
 
 func Test_validateQueryParams(t *testing.T) {
 	type args struct {
-		url *url.URL
+		url url.Values
 	}
 	tests := []struct {
 		name    string
@@ -247,8 +249,10 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "Valid query params",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=5&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"5"},
+					"filter": []string{"error"},
 				},
 			},
 			want: RequestParams{
@@ -261,23 +265,26 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "n is not a number",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=notanumber&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"five"},
+					"filter": []string{"error"},
 				},
 			},
 			want:    RequestParams{},
 			wantErr: true,
 		},
 		{
-			name: "n is not provided, should default to 100",
+			name: "n is not provided, should default to 10",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"filter": []string{"error"},
 				},
 			},
 			want: RequestParams{
 				fileName: "system.log",
-				lines:    100,
+				lines:    10,
 				filter:   "error",
 			},
 			wantErr: false,
@@ -285,8 +292,10 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "n is greater than 1000",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=1001&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"1001"},
+					"filter": []string{"error"},
 				},
 			},
 			want:    RequestParams{},
@@ -295,8 +304,10 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "n is less than 1",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=0&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"0"},
+					"filter": []string{"error"},
 				},
 			},
 			want:    RequestParams{},
@@ -305,8 +316,10 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "n is negative",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=-1&filter=error",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"-5"},
+					"filter": []string{"error"},
 				},
 			},
 			want:    RequestParams{},
@@ -315,8 +328,10 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "filter is provided and has leading/trailing spaces",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=5&filter=  Error   ",
+				url: url.Values{
+					"file":   []string{"system.log"},
+					"n":      []string{"5"},
+					"filter": []string{" Error "},
 				},
 			},
 			want: RequestParams{
@@ -329,8 +344,9 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "filter is not provided",
 			args: args{
-				url: &url.URL{
-					RawQuery: "file=system.log&n=5",
+				url: url.Values{
+					"file": []string{"system.log"},
+					"n":    []string{"5"},
 				},
 			},
 			want: RequestParams{
@@ -343,8 +359,9 @@ func Test_validateQueryParams(t *testing.T) {
 		{
 			name: "file is not provided, should default to system.log",
 			args: args{
-				url: &url.URL{
-					RawQuery: "n=5&filter=error",
+				url: url.Values{
+					"n":      []string{"5"},
+					"filter": []string{"error"},
 				},
 			},
 			want: RequestParams{

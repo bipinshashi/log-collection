@@ -29,4 +29,17 @@ curl 'localhost:3000/api/v1/logs?n=10&file=wifi.log&filter=notification'
   ```
     make test
   ```
+- Launch UI Demo at `localhost:3000`
 
+## Feature List
+
+- Read logs from single server [DONE]
+- Get last n entries [DONE]
+- Filter by query string [DONE]
+- Secondary Servers:
+  - fetch logs from secondary servers [DONE]
+  - parse timestamp of each entry [DONE]
+  - merge with primary server [DONE]
+- Add Tests [DONE]
+- Add documentation [DONE]
+- Add a basic UI [DONE]
