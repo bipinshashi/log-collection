@@ -1,0 +1,9 @@
+- Read logs from single server [DONE]
+- Get last n entries [DONE]
+- Filter by query string [DONE]
+- Secondary Servers:
+  - fetch logs from secondary servers [DONE]
+  - parse timestamp of each entry [DONE]
+  - merge with primary server [DONE]
+- Add Tests 
+- Add documentation
