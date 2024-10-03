@@ -9,18 +9,27 @@ import (
 	"time"
 
 	handler "github.com/bipinshashi/log-collection/internal"
+	"github.com/bipinshashi/log-collection/internal/config"
 	"github.com/gorilla/mux"
 )
 
 func main() {
-	r := mux.NewRouter()
-	r.HandleFunc("/api/v1/logs", handler.GetLogs).Methods("GET")
 
-	// parse port from env
-	port := os.Getenv("PORT")
+	client := &http.Client{
+		Timeout: time.Second * 10,
+	}
+
+	appHandler := &handler.AppHandler{
+		Client: client,
+	}
+
+	r := mux.NewRouter()
+	r.HandleFunc("/api/v1/logs", appHandler.GetLogs).Methods("GET")
+
+	config := config.GetConfig()
 
 	srv := &http.Server{
-		Addr: "0.0.0.0:" + port,
+		Addr: "0.0.0.0:" + config.Port,
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -34,7 +43,7 @@ func main() {
 			log.Println(err)
 		}
 	}()
-	log.Printf("Server started on port %s", port)
+	log.Printf("Server started on port %s", config.Port)
 
 	var wait time.Duration
 
