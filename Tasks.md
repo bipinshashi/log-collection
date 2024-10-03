@@ -5,5 +5,6 @@
   - fetch logs from secondary servers [DONE]
   - parse timestamp of each entry [DONE]
   - merge with primary server [DONE]
-- Add Tests 
-- Add documentation
+- Add Tests [DONE]
+- Add documentation [DONE]
+- Add a basic UI
