@@ -43,3 +43,7 @@ curl 'localhost:3000/api/v1/logs?n=10&file=wifi.log&filter=notification'
 - Add Tests [DONE]
 - Add documentation [DONE]
 - Add a basic UI [DONE]
+
+### Screenshot of Basic UI Demo
+
+![alt text](image.png)
